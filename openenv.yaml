@@ -1,0 +1,15 @@
+name: faultline
+version: 1.0.0
+description: SRE incident response environment for AI agent training and evaluation
+tasks:
+  - id: single_service_latency
+    difficulty: easy
+  - id: cascading_failure
+    difficulty: medium
+  - id: multi_region_incident
+    difficulty: hard
+action_space: discrete_typed
+observation_space: structured_dict
+reward_range: [0.0, 1.0]
+max_steps: 20
+tags: [sre, incident-response, multi-step, reward-shaping, enterprise]

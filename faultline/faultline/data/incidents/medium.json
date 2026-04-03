@@ -1,0 +1,38 @@
+{
+  "seed": 99,
+  "root_cause_service": "payment-service",
+  "root_cause_type": "CONNECTION_POOL_LEAK",
+  "correct_action": "rollback",
+  "correct_remediation_service": "payment-service",
+  "correct_target_version": "v1.4.1",
+  "alerts": [
+    {
+      "id": "alert-002",
+      "severity": "P1",
+      "service": "payment-service",
+      "title": "SERVICE_ERROR",
+      "description": "payment-service error rate 34% over last 5 minutes. Upstream DB errors detected.",
+      "firing_since": "2024-01-15T15:10:00Z",
+      "related_alerts": ["alert-003", "alert-004"]
+    },
+    {
+      "id": "alert-003",
+      "severity": "P2",
+      "service": "order-service",
+      "title": "HIGH_MEMORY",
+      "description": "order-service memory at 89%. Request queue depth 423 and climbing.",
+      "firing_since": "2024-01-15T15:12:00Z",
+      "related_alerts": ["alert-002"]
+    },
+    {
+      "id": "alert-004",
+      "severity": "P1",
+      "service": "payment-db",
+      "title": "CONNECTION_EXHAUSTED",
+      "description": "payment-db max_connections=100 reached. New connections being rejected.",
+      "firing_since": "2024-01-15T15:09:00Z",
+      "related_alerts": ["alert-002"]
+    }
+  ],
+  "postmortem_keywords": ["deployment", "connection pool", "v1.4.2", "rollback", "leak", "payment-service"]
+}

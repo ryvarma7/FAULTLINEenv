@@ -1,0 +1,85 @@
+{
+  "profiles": {
+    "steady": {
+      "description": "Stable baseline with minor noise",
+      "base_value": 30.0,
+      "noise_amplitude": 2.0,
+      "spike": null
+    },
+    "spiking": {
+      "description": "Baseline then sharp spike",
+      "base_value": 30.0,
+      "noise_amplitude": 2.0,
+      "spike": {"start_pct": 0.5, "peak_value": 95.0, "duration_pct": 0.5}
+    },
+    "saturated": {
+      "description": "Immediately at ceiling",
+      "base_value": 98.0,
+      "noise_amplitude": 1.0,
+      "spike": null
+    },
+    "climbing": {
+      "description": "Gradual increase over time",
+      "base_value": 40.0,
+      "noise_amplitude": 3.0,
+      "spike": {"start_pct": 0.0, "peak_value": 85.0, "duration_pct": 1.0}
+    },
+    "degraded": {
+      "description": "Elevated above normal but not critical",
+      "base_value": 65.0,
+      "noise_amplitude": 5.0,
+      "spike": null
+    }
+  },
+  "service_metrics": {
+    "elasticsearch": {
+      "cpu": "spiking",
+      "memory": "saturated",
+      "latency_p99": "spiking",
+      "error_rate": "spiking",
+      "throughput": "steady"
+    },
+    "search-service": {
+      "cpu": "steady",
+      "memory": "steady",
+      "latency_p99": "spiking",
+      "error_rate": "spiking",
+      "throughput": "steady"
+    },
+    "payment-service": {
+      "cpu": "degraded",
+      "memory": "climbing",
+      "latency_p99": "spiking",
+      "error_rate": "spiking",
+      "throughput": "degraded"
+    },
+    "payment-db": {
+      "cpu": "spiking",
+      "memory": "steady",
+      "latency_p99": "saturated",
+      "error_rate": "saturated",
+      "throughput": "steady"
+    },
+    "order-service": {
+      "cpu": "degraded",
+      "memory": "climbing",
+      "latency_p99": "degraded",
+      "error_rate": "degraded",
+      "throughput": "degraded"
+    },
+    "model-serving": {
+      "cpu": "saturated",
+      "memory": "steady",
+      "latency_p99": "spiking",
+      "error_rate": "degraded",
+      "throughput": "degraded"
+    },
+    "fraud-detector": {
+      "cpu": "steady",
+      "memory": "steady",
+      "latency_p99": "spiking",
+      "error_rate": "spiking",
+      "throughput": "degraded"
+    }
+  }
+}
