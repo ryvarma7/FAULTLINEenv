@@ -3,9 +3,11 @@ FaultLine Inference Script
 ===========================
 Runs a ReAct-style LLM agent against all 3 FaultLine tasks.
 
+Uses: meta-llama/Llama-3.1-405B-Instruct (Meta's best open model)
+
 Required environment variables:
   API_BASE_URL   - LLM API endpoint (default: HuggingFace router)
-  MODEL_NAME     - Model identifier
+  MODEL_NAME     - Model identifier (can override)
   HF_TOKEN       - API key / HuggingFace token
 
 Output format (mandatory):
@@ -25,7 +27,7 @@ from openai import OpenAI
 # --- Configuration ---
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY", "")
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-405B-Instruct")
 ENV_BASE_URL = os.getenv("FAULTLINE_URL", "http://localhost:7860")
 
 MAX_STEPS = 15
@@ -233,6 +235,7 @@ def main() -> None:
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
     print(f"[DEBUG] FaultLine inference starting. Model: {MODEL_NAME}", flush=True)
     print(f"[DEBUG] Environment URL: {ENV_BASE_URL}", flush=True)
+    print(f"[DEBUG] API Base URL: {API_BASE_URL}", flush=True)
 
     all_scores = {}
     for task_id in TASKS:
