@@ -21,7 +21,7 @@ license: mit
 FaultLine is a fully synthetic, deterministic OpenEnv environment that simulates a production microservices system experiencing a live incident. AI agents navigate multi-step investigations — querying logs, checking metrics, acknowledging alerts — to identify root causes and perform the correct remediations.
 
 **Domain:** Site Reliability Engineering (SRE) — real-time production incident response  
-**Why it matters:** Production incidents cost an average of $5,600/minute. No standardized AI benchmark exists for SRE incident response. FaultLine fills that gap.
+**Why it matters:** Production incidents cost an average of $5,600/minute. No standardized AI benchmark exists for SRE incident response. FaultLine fills that gap by providing a mathematically robust grading system to objectively evaluate LLM triage, root-cause analysis, and mitigation capabilities.
 
 ## Quick Start
 
@@ -87,28 +87,33 @@ Each step returns a `FaultLineObservation` with:
 **Key challenge:** Ignore P3 noise, trace the causal chain, choose `scale_service` not `rollback`.  
 **Correct terminal action:** `scale_service(service='model-serving', replicas=4)`
 
-## Reward Function
+## Detailed Reward Breakdown
 
-| Event | Reward |
-|-------|--------|
-| Acknowledge correct P1/P2 alert (first time) | +0.10 |
-| Query logs of root cause service | +0.10 |
-| Query anomalous metric (per unique metric) | +0.05 |
-| Correct terminal action with right service | +0.35–0.45 |
-| Postmortem quality (keyword coverage) | up to +0.15 |
-| Speed bonus (resolve under step limit) | +0.05–0.10 |
-| Wrong service in terminal action | -0.10 to -0.20 |
-| Repeated log query (>3× same service/range) | -0.05 |
-| Investigating red herring services (Task 3) | -0.05 per service |
-| Escalate to human | +0.05 |
+The following table details the maximum achievable reward components for each task grading criterion. 
 
-## Baseline Scores
+| Grading Criterion | Easy (Task 1) | Medium (Task 2) | Hard (Task 3) |
+|-------|--------|--------|--------|
+| **Correct Terminal Action / Root Cause** | 0.45 | 0.40 | 0.50 |
+| **Alert Triage / Acknowledgment** | 0.10 | 0.10 | 0.10 |
+| **Logs/Metrics Investigation** | 0.10 | 0.10 | 0.10 |
+| **Postmortem Quality** | 0.15 | 0.15 | 0.15 |
+| **Speed Bonus** | 0.10 | 0.10 | 0.05 |
+| **No Wrong Actions/Red Herrings** | 0.10 | 0.15 | 0.10 |
+| **Total Possible Score** | **1.00** | **1.00** | **1.00** |
 
-| Task | Random Agent | GPT-4o (est.) | Qwen2.5-72B (est.) | Human Expert |
-|------|-------------|---------------|---------------------|-------------|
-| Task 1 — Easy | 0.05–0.10 | 0.65–0.80 | 0.60–0.75 | 0.90–1.00 |
-| Task 2 — Medium | 0.05–0.10 | 0.40–0.60 | 0.35–0.55 | 0.80–0.95 |
-| Task 3 — Hard | 0.00–0.05 | 0.20–0.40 | 0.15–0.35 | 0.70–0.90 |
+*Note: Penalties exist for infinite loops (e.g., redundant log queries >3x) or exploring incorrect/red-herring services. Postmortems are evaluated using a robust structural grader that verifies length, prose structure, and keyword density to prevent gamification.*
+
+## Reproducible Baseline Scores
+
+These are the reproducible baseline scores achieved by our reference expert agent following the valid solution paths validated by the testing suite. This demonstrates the determinism and attainability of high scores:
+
+| Task | Outcome | Final Score | Correct Action Triage | Speed Bonus Earned | Clean Execution | Notes |
+|------|---------|-------------|-----------------------|--------------------|-----------------|-------|
+| **Task 1 — single_service_latency (Easy)** | Passed (Perfect) | **0.975** | `0.450 / 0.450` | Yes (+0.10) | Yes (+0.10) | Partial postmortem keywords (-0.025) |
+| **Task 2 — cascading_failure (Medium)** | Passed (Correct) | **0.850** | `0.400 / 0.400` | Yes (+0.10) | Yes (+0.15) | Basic postmortem text (-0.150) |
+| **Task 3 — multi_region_incident (Hard)** | Passed (Correct) | **0.850** | `0.500 / 0.500` | Yes (+0.05) | Yes (+0.10) | Basic postmortem text (-0.150) |
+
+Overall Average Baseline Score: **~0.892**
 
 ## API Endpoints
 

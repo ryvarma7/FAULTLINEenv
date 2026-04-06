@@ -106,10 +106,18 @@ class TaskEasy(BaseTask):
             if action.root_cause_service == self.get_root_cause_service():
                 step_reward += 0.40
                 self.add_reward("correct_root_cause", 0.40)
-                postmortem_lower = action.postmortem_text.lower()
-                keywords = self.config.get("postmortem_keywords", [])
-                matches = sum(1 for kw in keywords if kw in postmortem_lower)
-                pm_score = min(0.15, round(matches / max(len(keywords), 1) * 0.15, 3))
+                postmortem_text = action.postmortem_text
+                postmortem_lower = postmortem_text.lower()
+                words = postmortem_text.split()
+                sentence_count = sum(postmortem_text.count(c) for c in ".!?")
+                
+                if len(words) >= 20 and sentence_count >= 2:
+                    keywords = self.config.get("postmortem_keywords", [])
+                    matches = sum(1 for kw in keywords if kw in postmortem_lower)
+                    pm_score = min(0.15, round(matches / max(len(keywords), 1) * 0.15, 3))
+                else:
+                    pm_score = 0.0
+                    
                 step_reward += pm_score
                 self.add_reward("postmortem_quality", pm_score)
                 if self.elapsed_steps <= 6:

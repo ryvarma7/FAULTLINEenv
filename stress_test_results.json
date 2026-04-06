@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-06T19:29:47.574250",
+  "timestamp": "2026-04-06T20:33:37.395568",
   "tests": {
     "Init: single_service_latency": {
       "passed": true,
@@ -71,15 +71,15 @@
     },
     "Grading: Easy (Perfect)": {
       "passed": true,
-      "message": "Score: 0.975 | Passed: True",
+      "message": "Score: 0.850 | Passed: True",
       "details": {
-        "score": 0.975,
+        "score": 0.85,
         "passed": true,
         "breakdown": {
           "correct_root_cause": 0.45,
           "alert_acknowledged": 0.1,
           "root_cause_logs_queried": 0.1,
-          "postmortem_quality": 0.125,
+          "postmortem_quality": 0.0,
           "speed_bonus": 0.1,
           "no_wrong_actions": 0.1
         },
@@ -229,6 +229,6 @@
     "passed": 22,
     "failed": 0,
     "errors": 0,
-    "overall_score": 0.8916666666666666
+    "overall_score": 0.85
   }
 }
