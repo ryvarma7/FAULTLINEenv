@@ -1,0 +1,234 @@
+{
+  "timestamp": "2026-04-06T19:29:47.574250",
+  "tests": {
+    "Init: single_service_latency": {
+      "passed": true,
+      "message": "Initialized with 1 alerts",
+      "details": {
+        "task_id": "single_service_latency",
+        "alerts": 1
+      }
+    },
+    "Init: cascading_failure": {
+      "passed": true,
+      "message": "Initialized with 3 alerts",
+      "details": {
+        "task_id": "cascading_failure",
+        "alerts": 3
+      }
+    },
+    "Init: multi_region_incident": {
+      "passed": true,
+      "message": "Initialized with 5 alerts",
+      "details": {
+        "task_id": "multi_region_incident",
+        "alerts": 5
+      }
+    },
+    "Reproducibility: single_service_latency": {
+      "passed": true,
+      "message": "Same seed produces identical episodes",
+      "details": {
+        "task_id": "single_service_latency"
+      }
+    },
+    "Reproducibility: cascading_failure": {
+      "passed": true,
+      "message": "Same seed produces identical episodes",
+      "details": {
+        "task_id": "cascading_failure"
+      }
+    },
+    "Reproducibility: multi_region_incident": {
+      "passed": true,
+      "message": "Same seed produces identical episodes",
+      "details": {
+        "task_id": "multi_region_incident"
+      }
+    },
+    "Action: AcknowledgeAlert": {
+      "passed": true,
+      "message": "Reward: 0.1",
+      "details": {}
+    },
+    "Action: QueryLogs": {
+      "passed": true,
+      "message": "Returned 8 log entries",
+      "details": {}
+    },
+    "Action: CheckMetrics": {
+      "passed": true,
+      "message": "Returned 15 metric points",
+      "details": {}
+    },
+    "Episode Completion (Easy Task)": {
+      "passed": true,
+      "message": "Completed in 4 steps with done=True",
+      "details": {
+        "steps": 4,
+        "done": true
+      }
+    },
+    "Grading: Easy (Perfect)": {
+      "passed": true,
+      "message": "Score: 0.975 | Passed: True",
+      "details": {
+        "score": 0.975,
+        "passed": true,
+        "breakdown": {
+          "correct_root_cause": 0.45,
+          "alert_acknowledged": 0.1,
+          "root_cause_logs_queried": 0.1,
+          "postmortem_quality": 0.125,
+          "speed_bonus": 0.1,
+          "no_wrong_actions": 0.1
+        },
+        "notes": []
+      }
+    },
+    "Grading: Medium (Correct)": {
+      "passed": true,
+      "message": "Score: 0.850 | Passed: True",
+      "details": {
+        "score": 0.85,
+        "passed": true,
+        "breakdown": {
+          "correct_rollback": 0.4,
+          "alerts_acknowledged": 0.1,
+          "upstream_logs_queried": 0.1,
+          "postmortem_quality": 0.0,
+          "no_wrong_actions": 0.15,
+          "speed_bonus": 0.1
+        },
+        "notes": []
+      }
+    },
+    "Grading: Hard (Correct)": {
+      "passed": true,
+      "message": "Score: 0.850 | Passed: True",
+      "details": {
+        "score": 0.85,
+        "passed": true,
+        "breakdown": {
+          "correct_root_cause": 0.35,
+          "correct_action_type": 0.15,
+          "alert_triage": 0.1,
+          "correct_logs_queried": 0.1,
+          "postmortem_quality": 0.0,
+          "no_red_herring_waste": 0.1,
+          "speed_bonus": 0.05
+        },
+        "notes": []
+      }
+    },
+    "Invalid Task": {
+      "passed": true,
+      "message": "Correctly raised ValueError",
+      "details": {}
+    },
+    "Step Before Reset": {
+      "passed": true,
+      "message": "Correctly raised RuntimeError",
+      "details": {}
+    },
+    "Invalid Alert ID": {
+      "passed": true,
+      "message": "Handled gracefully",
+      "details": {}
+    },
+    "Loop Penalty": {
+      "passed": true,
+      "message": "Loop penalty applied: -0.1",
+      "details": {}
+    },
+    "Dependency Graph: single_service_latency": {
+      "passed": true,
+      "message": "Valid graph with 12 services",
+      "details": {
+        "services": 12,
+        "services_list": [
+          "api-gateway",
+          "auth-service",
+          "product-service",
+          "order-service",
+          "payment-service",
+          "notification-service",
+          "postgres-primary",
+          "redis-cache",
+          "fraud-detector",
+          "model-serving",
+          "search-service",
+          "elasticsearch"
+        ]
+      }
+    },
+    "Dependency Graph: cascading_failure": {
+      "passed": true,
+      "message": "Valid graph with 12 services",
+      "details": {
+        "services": 12,
+        "services_list": [
+          "api-gateway",
+          "auth-service",
+          "product-service",
+          "order-service",
+          "payment-service",
+          "notification-service",
+          "postgres-primary",
+          "redis-cache",
+          "fraud-detector",
+          "model-serving",
+          "search-service",
+          "elasticsearch"
+        ]
+      }
+    },
+    "Dependency Graph: multi_region_incident": {
+      "passed": true,
+      "message": "Valid graph with 12 services",
+      "details": {
+        "services": 12,
+        "services_list": [
+          "api-gateway",
+          "auth-service",
+          "product-service",
+          "order-service",
+          "payment-service",
+          "notification-service",
+          "postgres-primary",
+          "redis-cache",
+          "fraud-detector",
+          "model-serving",
+          "search-service",
+          "elasticsearch"
+        ]
+      }
+    },
+    "Stress Load (Multiple Episodes)": {
+      "passed": true,
+      "message": "Ran 9 episodes successfully, 0 failed",
+      "details": {
+        "successful": 9,
+        "failed": 0,
+        "total": 9
+      }
+    },
+    "Observation Validity": {
+      "passed": true,
+      "message": "All required fields present and valid",
+      "details": {
+        "alerts": 1,
+        "services_in_graph": 12,
+        "elapsed_steps": 0
+      }
+    }
+  },
+  "errors": [],
+  "summary": {
+    "total_tests": 22,
+    "passed": 22,
+    "failed": 0,
+    "errors": 0,
+    "overall_score": 0.8916666666666666
+  }
+}

@@ -101,4 +101,4 @@ class TestGraderHard:
         env.step(QueryLogsAction(service="elasticsearch", time_range="last_15m"))
         env.step(QueryLogsAction(service="elasticsearch", time_range="last_15m"))
         task = env._task
-        assert task.reward_breakdown.get("red_herring_penalty_elasticsearch", 0.0) < 0
+        assert task.reward_breakdown.get("red_herring_elasticsearch", 0.0) < 0
