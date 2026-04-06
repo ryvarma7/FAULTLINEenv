@@ -13,7 +13,7 @@ tags:
 license: mit
 ---
 # FaultLine
-> SRE Incident Response Agent Environment — OpenEnv Hackathon Submission
+> SRE Incident Response Agent Environment — OpenEnv Hackathon Submission.
 
 **"Where agents learn to hold the line."**
 
