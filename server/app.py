@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import uvicorn
 from typing import Any, Dict, Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -132,3 +133,11 @@ async def list_tasks():
              "description": "Navigate multi-service incident with red herring alerts to find model-serving CPU quota exhaustion"},
         ]
     }
+
+
+def main():
+    uvicorn.run("server.app:app", host="0.0.0.0", port=7860)
+
+
+if __name__ == "__main__":
+    main()
