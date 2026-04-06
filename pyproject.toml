@@ -7,13 +7,17 @@ name = "faultline"
 version = "0.1.0"
 description = "FaultLine project for OpenEnv"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
-    "fastapi==0.111.0",
-    "uvicorn[standard]==0.29.0",
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
     "pydantic>=2.7.1",
-    "openai==1.30.1",
-    "httpx==0.27.0",
-    "pytest==8.2.0",
-    "python-dotenv==1.0.1"
+    "openai>=1.30.1",
+    "httpx>=0.27.0",
+    "pytest>=8.2.0",
+    "python-dotenv>=1.0.1",
+    "openenv-core>=0.2.0"
 ]
+
+[project.scripts]
+server = "server.app:app"

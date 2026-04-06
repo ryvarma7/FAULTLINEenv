@@ -34,7 +34,7 @@ docker run -p 7860:7860 faultline
 ### Local
 ```bash
 pip install -r requirements.txt
-uvicorn faultline.server:app --host 0.0.0.0 --port 7860
+uvicorn server.app:app --host 0.0.0.0 --port 7860
 ```
 
 ### Run baseline inference
