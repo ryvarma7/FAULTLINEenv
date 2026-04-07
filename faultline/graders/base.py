@@ -18,4 +18,9 @@ class BaseGrader(ABC):
         """Grade the completed task episode. Returns GraderResult."""
 
     def _clamp(self, value: float) -> float:
-        return max(0.0, min(1.0, round(value, 4)))
+        val = max(0.0, min(1.0, round(value, 4)))
+        if val <= 0.0:
+            return 0.01
+        elif val >= 1.0:
+            return 0.99
+        return val
