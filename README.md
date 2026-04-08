@@ -21,7 +21,7 @@ license: mit
 FaultLine is a fully synthetic, deterministic OpenEnv environment that simulates a production microservices system experiencing a live incident. AI agents navigate multi-step investigations — querying logs, checking metrics, acknowledging alerts — to identify root causes and perform the correct remediations.
 
 **Domain:** Site Reliability Engineering (SRE) — real-time production incident response  
-**Why it matters:** Production incidents cost an average of $5,600/minute. No standardized AI benchmark exists for SRE incident response. FaultLine fills that gap by providing a mathematically robust grading system to objectively evaluate LLM triage, root-cause analysis, and mitigation capabilities.
+**Why it matters:** Production incidents cost an average of $5,600/minute. No standardized AI benchmark exists for SRE incident response. FaultLine fills that gap by providing a mathematically robust grading system to objectively evaluate LLM triage, root-cause analysis, and mitigation capabilities..
 
 ## Quick Start
 
