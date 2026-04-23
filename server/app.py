@@ -44,6 +44,7 @@ class ResetRequest(BaseModel):
     task_id: str = "single_service_latency"
     seed: int = 42
     session_id: str = "default"
+    config: Optional[Dict[str, Any]] = None
 
 class StepRequest(BaseModel):
     action: Dict[str, Any]
@@ -72,12 +73,19 @@ async def reset(request: ResetRequest = None):
     if request is None:
         request = ResetRequest()
     task_id = request.task_id
-    if task_id not in TASK_REGISTRY:
+    if task_id not in TASK_REGISTRY and not request.config:
         raise HTTPException(status_code=400, detail=f"Unknown task_id '{task_id}'. Valid: {list(TASK_REGISTRY)}")
+    
     env = FaultLineEnv(task_id=task_id, seed=request.seed)
-    result = env.reset()
+    
+    config_obj = None
+    if request.config:
+        from faultline.models import IncidentConfig
+        config_obj = IncidentConfig(**request.config)
+        
+    obs = env.reset(task_id=task_id, seed=request.seed, config=config_obj)
     _envs[request.session_id] = env
-    return _result_to_dict(result)
+    return _obs_to_dict(obs)
 
 @app.post("/step")
 async def step(request: StepRequest):
@@ -101,7 +109,9 @@ async def step(request: StepRequest):
     except (KeyError, ValidationError) as e:
         raise HTTPException(status_code=422, detail=f"Invalid action payload: {e}")
     result = env.step(action_obj)
-    return _result_to_dict(result)
+    # result is already a dict
+    result["observation"] = _obs_to_dict(result["observation"])
+    return result
 
 @app.post("/state")
 async def state(request: StateRequest = None):
@@ -109,8 +119,8 @@ async def state(request: StateRequest = None):
     if request is None:
         request = StateRequest()
     env = _get_env(request.session_id)
-    obs = env.state()
-    return _obs_to_dict(obs)
+    obs_dict = env.state()
+    return obs_dict
 
 @app.post("/grade")
 async def grade(request: GradeRequest = None):

@@ -31,39 +31,73 @@ class FaultLineEnv:
         self.seed = seed
         self._task: Optional[BaseTask] = None
         self._current_observation: Optional[FaultLineObservation] = None
+        self._scenario = None
 
-    def reset(self) -> StepResult:
-        """Reset the environment to initial state. Returns initial StepResult."""
-        TaskClass, _ = TASK_REGISTRY[self.task_id]
-        self._task = TaskClass(seed=self.seed)
-        self._current_observation = self._task.get_initial_observation()
-        return StepResult(
-            observation=self._current_observation,
-            reward=0.0,
-            done=False,
-            info={
-                "task_id": self.task_id,
-                "seed": self.seed,
-                "episode_state": EpisodeState.ACTIVE,
-            },
-        )
+    def reset(self, task_id: Optional[str] = None, seed: Optional[int] = None, config: Optional[Any] = None) -> FaultLineObservation:
+        """Reset the environment to initial state. Returns ObservationModel."""
+        if task_id is not None:
+            self.task_id = task_id
+        if seed is not None:
+            self.seed = seed
+            
+        if config:
+            from faultline.generator import ProceduralIncidentGenerator
+            generator = ProceduralIncidentGenerator()
+            scenario = generator.generate(config, self.seed)
+            self._scenario = scenario
+            self._task = None
+            
+            # Dummy initial observation for the generated scenario
+            alerts = self._scenario.firing_alerts + self._scenario.red_herring_alerts
+            self._current_observation = FaultLineObservation(
+                alerts=alerts,
+                dependency_graph={s: [] for s in self._scenario.affected_services + [self._scenario.root_cause_service]},
+            )
+        else:
+            self._scenario = None
+            TaskClass, _ = TASK_REGISTRY[self.task_id]
+            self._task = TaskClass(seed=self.seed)
+            self._current_observation = self._task.get_initial_observation()
+            
+        return self._current_observation
 
-    def step(self, action: FaultLineAction) -> StepResult:
+    def step(self, action: FaultLineAction) -> dict:
         """
         Execute one action in the environment.
-        Returns StepResult with updated observation, reward, done flag, and info dict.
+        Returns dict with observation, reward, done flag, and info dict.
         """
-        if self._task is None:
+        if self._task is None and self._scenario is None:
             raise RuntimeError("Call reset() before step().")
-        result = self._task.step(action)
-        self._current_observation = result.observation
-        return result
+            
+        if self._task is not None:
+            result = self._task.step(action)
+            self._current_observation = result.observation
+            return {
+                "observation": result.observation,
+                "reward": result.reward,
+                "done": result.done,
+                "info": result.info
+            }
+        else:
+            # Simple handling for generated scenario
+            done = False
+            reward = 0.0
+            if getattr(action, 'type', '') == self._scenario.correct_action_type:
+                done = True
+                reward = 1.0
+            
+            return {
+                "observation": self._current_observation,
+                "reward": reward,
+                "done": done,
+                "info": {}
+            }
 
-    def state(self) -> FaultLineObservation:
+    def state(self) -> dict:
         """Return the current observation without advancing the episode."""
         if self._current_observation is None:
             raise RuntimeError("Call reset() before state().")
-        return self._current_observation
+        return self._current_observation.model_dump()
 
     def grade(self) -> Dict[str, Any]:
         """Grade the current episode. Call after episode is done."""
