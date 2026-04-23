@@ -28,7 +28,7 @@ from openai import OpenAI
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY", "")
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-405B-Instruct")
-ENV_BASE_URL = os.getenv("FAULTLINE_URL", "http://localhost:7860")
+ENV_BASE_URL = os.getenv("FAULTLINE_URL", "http://127.0.0.1:7860")
 
 MAX_STEPS = 15
 TEMPERATURE = 0.2
@@ -88,6 +88,7 @@ You will receive an observation containing:
 You must respond with ONLY a JSON object representing ONE action. Choose from:
 
 {"type": "acknowledge_alert", "alert_id": "<alert_id>"}
+{"type": "query_runbook", "topic": "<topic>"}
 {"type": "query_logs", "service": "<service_name>", "time_range": "last_15m", "filter_expr": ""}
 {"type": "check_metrics", "service": "<service_name>", "metric_name": "<cpu|memory|latency_p99|error_rate|throughput>", "window_minutes": 15}
 {"type": "rollback", "service": "<service_name>", "target_version": "<version>"}
@@ -172,7 +173,7 @@ def get_agent_action(client: OpenAI, obs_data: Dict[str, Any], step: int, histor
         service = alerts[0]["service"] if alerts else "api-gateway"
         return {"type": "query_logs", "service": service, "time_range": "last_15m", "filter_expr": ""}
 
-def run_task(client: OpenAI, task_id: str) -> float:
+def run_task(client: OpenAI, task_id: str, seed: int = 42) -> float:
     """Run one full episode for a task. Returns normalized score."""
     log_start(task=task_id, model=MODEL_NAME)
 
@@ -183,8 +184,8 @@ def run_task(client: OpenAI, task_id: str) -> float:
     success = False
 
     try:
-        result_data = env_reset(task_id=task_id, seed=42)
-        obs_data = result_data["observation"]
+        result_data = env_reset(task_id=task_id, seed=seed)
+        obs_data = result_data.get("observation", result_data)
         done = result_data.get("done", False)
 
         for step in range(1, MAX_STEPS + 1):
@@ -229,17 +230,17 @@ def run_task(client: OpenAI, task_id: str) -> float:
     finally:
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
-    return score
+    return score, steps_taken, success
 
 def main() -> None:
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY, timeout=0.1, max_retries=0)
     print(f"[DEBUG] FaultLine inference starting. Model: {MODEL_NAME}", flush=True)
     print(f"[DEBUG] Environment URL: {ENV_BASE_URL}", flush=True)
     print(f"[DEBUG] API Base URL: {API_BASE_URL}", flush=True)
 
     all_scores = {}
     for task_id in TASKS:
-        score = run_task(client, task_id)
+        score, steps, success = run_task(client, task_id)
         all_scores[task_id] = score
         print(f"[DEBUG] {task_id} final score: {score:.3f}", flush=True)
 

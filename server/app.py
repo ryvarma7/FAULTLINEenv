@@ -10,7 +10,7 @@ from faultline.env import FaultLineEnv, TASK_REGISTRY
 from faultline.models import (
     FaultLineAction, FaultLineObservation, StepResult,
     QueryLogsAction, CheckMetricsAction, AcknowledgeAlertAction,
-    RollbackAction, ScaleServiceAction, EscalateAction, ResolveAction,
+    RollbackAction, ScaleServiceAction, EscalateAction, ResolveAction, QueryRunbookAction
 )
 
 app = FastAPI(
@@ -102,6 +102,7 @@ async def step(request: StepRequest):
             "scale_service": ScaleServiceAction,
             "escalate": EscalateAction,
             "resolve": ResolveAction,
+            "query_runbook": QueryRunbookAction,
         }
         if action_type not in action_map:
             raise HTTPException(status_code=400, detail=f"Unknown action type '{action_type}'. Valid: {list(action_map)}")

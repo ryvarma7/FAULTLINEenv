@@ -1,0 +1,81 @@
+{
+  "single_service_latency": [
+    {
+      "seed": 42,
+      "score": 0.1,
+      "steps": 15,
+      "success": true
+    },
+    {
+      "seed": 43,
+      "score": 0.1,
+      "steps": 15,
+      "success": true
+    },
+    {
+      "seed": 44,
+      "score": 0.1,
+      "steps": 15,
+      "success": true
+    }
+  ],
+  "single_service_latency_summary": {
+    "avg_score": 0.10000000000000002,
+    "success_rate": 1.0,
+    "avg_steps": 15.0
+  },
+  "cascading_failure": [
+    {
+      "seed": 42,
+      "score": 0.1,
+      "steps": 15,
+      "success": true
+    },
+    {
+      "seed": 43,
+      "score": 0.1,
+      "steps": 15,
+      "success": true
+    },
+    {
+      "seed": 44,
+      "score": 0.2,
+      "steps": 15,
+      "success": true
+    }
+  ],
+  "cascading_failure_summary": {
+    "avg_score": 0.13333333333333333,
+    "success_rate": 1.0,
+    "avg_steps": 15.0
+  },
+  "multi_region_incident": [
+    {
+      "seed": 42,
+      "score": 0.0,
+      "steps": 15,
+      "success": false
+    },
+    {
+      "seed": 43,
+      "score": 0.0,
+      "steps": 0,
+      "success": false
+    },
+    {
+      "seed": 44,
+      "score": 0.0,
+      "steps": 0,
+      "success": false
+    }
+  ],
+  "multi_region_incident_summary": {
+    "avg_score": 0.0,
+    "success_rate": 0.0,
+    "avg_steps": 5.0
+  },
+  "overall_summary": {
+    "avg_score": 0.07777777777777778,
+    "success_rate": 0.6666666666666666
+  }
+}
