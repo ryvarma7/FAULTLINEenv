@@ -4,7 +4,7 @@ from typing import List
 from faultline.models import (
     Alert, FaultLineObservation, FaultLineAction,
     QueryLogsAction, CheckMetricsAction, AcknowledgeAlertAction,
-    ScaleServiceAction, RollbackAction, EscalateAction, StepResult, EpisodeState
+    ScaleServiceAction, RollbackAction, ResolveAction, EscalateAction, StepResult, EpisodeState
 )
 from faultline.tasks.base import BaseTask, DEPENDENCY_GRAPH
 from faultline.data.generator import generate_logs, generate_metrics
@@ -157,6 +157,21 @@ class TaskHard(BaseTask):
             self.add_reward("wrong_action_rollback", -0.20)
             self.episode_state = EpisodeState.FAILED
             result_message = f"Rollback is incorrect for this scenario. Scale service action required."
+
+        elif isinstance(action, ResolveAction):
+            done = True
+            self.episode_state = EpisodeState.RESOLVED
+            if action.root_cause_service == self.get_root_cause_service():
+                step_reward += 0.10
+                self.add_reward("correct_root_cause", 0.10)
+                from faultline.graders.base import score_postmortem
+                pm_score = score_postmortem(action.postmortem_text, self)
+                step_reward += pm_score
+                self.add_reward("postmortem_quality", pm_score)
+            else:
+                step_reward -= 0.10
+                self.add_reward("wrong_root_cause", -0.10)
+            result_message = f"Resolve action submitted. Root cause identified as: {action.root_cause_service}."
 
         elif isinstance(action, EscalateAction):
             done = True

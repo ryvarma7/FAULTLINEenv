@@ -59,6 +59,10 @@ class FaultLineEnv:
             self._task = TaskClass(seed=self.seed)
             self._current_observation = self._task.get_initial_observation()
             
+        self._runbook_query_counts = {}
+        self._resolved = False
+        self._step_count = 0
+            
         return self._current_observation
 
     def step(self, action: FaultLineAction) -> dict:
@@ -69,9 +73,65 @@ class FaultLineEnv:
         if self._task is None and self._scenario is None:
             raise RuntimeError("Call reset() before step().")
             
+        self._step_count += 1
+        is_max_steps = self._step_count >= 20
+
+        action_type = getattr(action, 'type', '')
+        
+        # Anti-hacking: prevent repeated resolve
+        if action_type == 'resolve':
+            if self._resolved:
+                self._current_observation.last_action_result = "Error: Episode already resolved or failed."
+                return {
+                    "observation": self._current_observation,
+                    "reward": -0.1,
+                    "done": True,
+                    "info": {"error": "Already resolved"}
+                }
+            self._resolved = True
+
+        # Handle QueryRunbookAction centrally
+        if action_type == 'query_runbook':
+            from faultline.runbooks import RUNBOOK_ENTRIES
+            topic = getattr(action, 'topic', '')
+            text = RUNBOOK_ENTRIES.get(topic, f"No runbook entry found for '{topic}'.")
+            
+            self._runbook_query_counts[topic] = self._runbook_query_counts.get(topic, 0) + 1
+            count = self._runbook_query_counts[topic]
+            
+            reward = 0.0
+            root_cause = self._task.get_root_cause_service() if self._task else (self._scenario.root_cause_service if self._scenario else "")
+            
+            if topic == root_cause or topic in [root_cause.replace("-service", ""), "connection_leak", "quota_exceeded", "oom", "latency", "config_drift", "crash", "cascading_failure"]:
+                # simple relevance check
+                if topic == root_cause or topic in getattr(self._scenario, 'failure_mode', '') or (self._task and topic in getattr(self._task, 'task_id', '')):
+                    reward += 0.05
+                elif topic in root_cause:
+                    reward += 0.05
+                    
+            if count >= 3:
+                reward -= 0.03
+                
+            self._current_observation.last_action_result = text
+            self._current_observation.elapsed_steps = self._step_count
+            
+            if self._task:
+                self._task.elapsed_steps = self._step_count
+                self._task.cumulative_reward = min(1.0, max(0.0, self._task.cumulative_reward + reward))
+                
+            return {
+                "observation": self._current_observation,
+                "reward": reward,
+                "done": is_max_steps,
+                "info": {}
+            }
+            
         if self._task is not None:
             result = self._task.step(action)
             self._current_observation = result.observation
+            self._current_observation.elapsed_steps = self._step_count
+            if is_max_steps:
+                result.done = True
             return {
                 "observation": result.observation,
                 "reward": result.reward,
@@ -80,11 +140,26 @@ class FaultLineEnv:
             }
         else:
             # Simple handling for generated scenario
-            done = False
+            done = is_max_steps
             reward = 0.0
-            if getattr(action, 'type', '') == self._scenario.correct_action_type:
+            
+            if action_type == 'query_logs':
+                # Anti-hacking query_logs spam penalty
+                key = f"{getattr(action, 'service', '')}:{getattr(action, 'time_range', '')}"
+                self._runbook_query_counts[key] = self._runbook_query_counts.get(key, 0) + 1
+                if self._runbook_query_counts[key] > 3:
+                    reward -= 0.05
+                self._current_observation.last_action_result = f"Queried logs for {getattr(action, 'service', '')}."
+            elif action_type == self._scenario.correct_action_type:
                 done = True
                 reward = 1.0
+                self._current_observation.last_action_result = f"Correct action {action_type} executed."
+            elif action_type not in ['check_metrics', 'acknowledge_alert', 'escalate']:
+                self._current_observation.last_action_result = "Invalid or incorrect action."
+            else:
+                self._current_observation.last_action_result = f"Executed {action_type}."
+                
+            self._current_observation.elapsed_steps = self._step_count
             
             return {
                 "observation": self._current_observation,

@@ -94,6 +94,11 @@ class ResolveAction(FaultLineModel):
     postmortem_text: str
 
 
+class QueryRunbookAction(FaultLineModel):
+    type: Literal["query_runbook"] = "query_runbook"
+    topic: str
+
+
 FaultLineAction = Annotated[
     Union[
         QueryLogsAction,
@@ -103,6 +108,7 @@ FaultLineAction = Annotated[
         ScaleServiceAction,
         EscalateAction,
         ResolveAction,
+        QueryRunbookAction,
     ],
     Field(discriminator="type"),
 ]
