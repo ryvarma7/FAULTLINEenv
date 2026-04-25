@@ -25,11 +25,15 @@ from faultline.env import FaultLineEnv, TASK_REGISTRY
 from faultline.models import FaultLineObservation
 from faultline.utils.action_parser import parse_action
 from faultline.utils.validators import validate_step_output
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Global debug flag — set False in production to reduce log volume
 # ---------------------------------------------------------------------------
-DEBUG: bool = True
+DEBUG: bool = os.getenv("FAULTLINE_DEBUG", "True").lower() == "true"
 
 app = FastAPI(
     title="FaultLine",
@@ -286,7 +290,9 @@ async def list_tasks():
 
 
 def main():
-    uvicorn.run("server.app:app", host="0.0.0.0", port=7860, reload=False)
+    host = os.getenv("FAULTLINE_HOST", "0.0.0.0")
+    port = int(os.getenv("FAULTLINE_PORT", "7860"))
+    uvicorn.run("server.app:app", host=host, port=port, reload=False)
 
 
 if __name__ == "__main__":

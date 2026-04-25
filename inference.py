@@ -23,6 +23,11 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 from openai import OpenAI
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 
 # --- Configuration ---
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY", "")
@@ -30,9 +35,9 @@ API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-405B-Instruct")
 ENV_BASE_URL = os.getenv("FAULTLINE_URL", "http://127.0.0.1:7860")
 
-MAX_STEPS = 15
-TEMPERATURE = 0.2
-MAX_TOKENS = 512
+MAX_STEPS = int(os.getenv("MAX_STEPS", "15"))
+TEMPERATURE = float(os.getenv("TEMPERATURE", "0.2"))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", "512"))
 
 TASKS = [
     "single_service_latency",

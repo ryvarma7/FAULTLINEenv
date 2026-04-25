@@ -27,11 +27,15 @@ from faultline.env import FaultLineEnv
 from faultline.models import FaultLineObservation
 from faultline.utils.action_parser import parse_action
 from faultline.utils.validators import validate_step_output
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Global debug flag — set to False in production to reduce log volume
 # ---------------------------------------------------------------------------
-DEBUG: bool = True
+DEBUG: bool = os.getenv("FAULTLINE_DEBUG", "True").lower() == "true"
 
 app = FastAPI(
     title="FaultLine (mini)",
