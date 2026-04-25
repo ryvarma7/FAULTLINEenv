@@ -40,7 +40,17 @@ TASKS = [
     "multi_region_incident",
 ]
 
-SUCCESS_THRESHOLD = 0.10
+# TASK 1: Task-specific success thresholds.
+def get_success_threshold(task_id: str) -> float:
+    if task_id == "single_service_latency":
+        return 0.45
+    elif task_id == "cascading_failure":
+        return 0.40
+    else:
+        return 0.35
+
+# TASK 5: Terminal actions — when seen in the loop, episode should be ending.
+TERMINAL_ACTIONS = {"resolve", "rollback", "scale_service"}
 
 # --- Logging helpers (mandatory format) ---
 
@@ -75,39 +85,52 @@ def env_grade() -> Dict[str, Any]:
 
 # --- Prompt builders ---
 
+# TASK 3: Improved system prompt with explicit rules, action menu, and critical constraints.
 SYSTEM_PROMPT = textwrap.dedent("""
 You are an expert Site Reliability Engineer (SRE) responding to a live production incident.
-You will receive an observation containing:
-- alerts: list of firing alerts (id, severity P1-P4, service, title, description)
-- dependency_graph: service dependency map
-- log_results: logs from your last query (if any)
-- metric_results: metrics from your last query (if any)
-- last_action_result: result of your last action
-- elapsed_steps: steps taken so far
 
-You must respond with ONLY a JSON object representing ONE action. Choose from:
+Your goal:
+Identify the root cause of the incident and take the correct remediation action.
 
-{"type": "acknowledge_alert", "alert_id": "<alert_id>"}
-{"type": "query_runbook", "topic": "<topic>"}
-{"type": "query_logs", "service": "<service_name>", "time_range": "last_15m", "filter_expr": ""}
-{"type": "check_metrics", "service": "<service_name>", "metric_name": "<cpu|memory|latency_p99|error_rate|throughput>", "window_minutes": 15}
-{"type": "rollback", "service": "<service_name>", "target_version": "<version>"}
-{"type": "scale_service", "service": "<service_name>", "replicas": <int>}
-{"type": "escalate", "team": "<team_name>", "message": "<message>"}
-{"type": "resolve", "root_cause_service": "<service_name>", "postmortem_text": "<detailed postmortem>"}
+Available actions:
+- acknowledge_alert
+- query_logs
+- check_metrics
+- query_runbook
+- rollback
+- scale_service
+- resolve
 
-Strategy:
-1. Acknowledge P1 alerts first.
-2. Check metrics and logs to trace the root cause upstream.
-3. Do NOT query the same service/range more than twice.
-4. Ignore low-severity (P3/P4) alerts unless they directly relate to P1s.
-5. When confident, call resolve() with the correct root_cause_service and a detailed postmortem.
-6. Postmortem must mention: root cause, timeline, and remediation steps.
+Rules:
+1. Always start by acknowledging P1 alerts.
+2. Investigate upstream dependencies — the alerting service is often NOT the root cause.
+3. Use logs and metrics to trace the causal chain.
+4. Avoid repeating the same query multiple times.
+5. If unsure, use query_runbook with a relevant topic (max 2 times).
+6. Once you identify the root cause, you MUST take a final action:
+   - resolve(root_cause_service=..., postmortem_text=...)
+   - OR rollback(service=..., target_version=...)
+   - OR scale_service(service=..., replicas=...)
 
-Respond with ONLY the JSON object, no other text.
+CRITICAL RULES:
+- You MUST finish the task using resolve, rollback, or scale_service.
+- You are NOT allowed to exceed 12 steps without taking a final action.
+- Continuing investigation after identifying root cause is incorrect.
+- Repeated queries will be penalized.
+
+Output ONLY a valid JSON object with no explanation.
 """).strip()
 
-def build_user_prompt(obs_data: Dict[str, Any], step: int, history: List[str]) -> str:
+FORCE_CONCLUDE_PROMPT = (
+    "\n\n[SYSTEM OVERRIDE] FINAL WARNING:\n"
+    "You must now take a final action immediately.\n"
+    "Do NOT investigate further.\n"
+    "Respond with resolve, rollback, or scale_service.\n"
+    "Output ONLY a valid JSON object."
+)
+
+
+def build_user_prompt(obs_data: Dict[str, Any], step: int, history: List[str], force_conclude: bool = False) -> str:
     alerts_summary = "\n".join(
         f"  [{a['severity']}] {a['id']} | {a['service']} | {a['title']}: {a['description']}"
         for a in obs_data.get("alerts", [])
@@ -127,7 +150,7 @@ def build_user_prompt(obs_data: Dict[str, Any], step: int, history: List[str]) -
 
     history_block = "\n".join(history[-5:]) if history else "None"
 
-    return textwrap.dedent(f"""
+    base = textwrap.dedent(f"""
         Step: {step}
         Last action result: {obs_data.get('last_action_result', '')}
         Elapsed steps: {obs_data.get('elapsed_steps', step)}
@@ -147,8 +170,15 @@ def build_user_prompt(obs_data: Dict[str, Any], step: int, history: List[str]) -
         What is your next action? Respond with ONLY a JSON object.
     """).strip()
 
-def get_agent_action(client: OpenAI, obs_data: Dict[str, Any], step: int, history: List[str]) -> Dict[str, Any]:
-    user_prompt = build_user_prompt(obs_data, step, history)
+    # TASK 7: Inject force-conclude instruction at step >= 10
+    if force_conclude:
+        base += FORCE_CONCLUDE_PROMPT
+
+    return base
+
+
+def get_agent_action(client: OpenAI, obs_data: Dict[str, Any], step: int, history: List[str], force_conclude: bool = False) -> Dict[str, Any]:
+    user_prompt = build_user_prompt(obs_data, step, history, force_conclude=force_conclude)
     try:
         completion = client.chat.completions.create(
             model=MODEL_NAME,
@@ -173,8 +203,9 @@ def get_agent_action(client: OpenAI, obs_data: Dict[str, Any], step: int, histor
         service = alerts[0]["service"] if alerts else "api-gateway"
         return {"type": "query_logs", "service": service, "time_range": "last_15m", "filter_expr": ""}
 
+
 def run_task(client: OpenAI, task_id: str, seed: int = 42) -> float:
-    """Run one full episode for a task. Returns normalized score."""
+    """Run one full episode for a task. Returns (score, steps_taken, success)."""
     log_start(task=task_id, model=MODEL_NAME)
 
     rewards: List[float] = []
@@ -182,6 +213,11 @@ def run_task(client: OpenAI, task_id: str, seed: int = 42) -> float:
     steps_taken = 0
     score = 0.0
     success = False
+
+    # TASK 5: Per-service query count for looping detection (tracked client-side for logging)
+    query_logs_count: Dict[str, int] = {}
+    runbook_count = 0
+    terminal_action_taken = False
 
     try:
         result_data = env_reset(task_id=task_id, seed=seed)
@@ -192,8 +228,35 @@ def run_task(client: OpenAI, task_id: str, seed: int = 42) -> float:
             if done:
                 break
 
-            action = get_agent_action(client, obs_data, step, history)
+            # TASK 7: Force conclude if >= 12 steps with no terminal action
+            force_conclude = (step >= 12 and not terminal_action_taken)
+
+            action = get_agent_action(client, obs_data, step, history, force_conclude=force_conclude)
+            
+            # If step >= 14, restrict allowed actions to ONLY terminal actions
+            if step >= 14 and action.get("type") not in TERMINAL_ACTIONS:
+                action = {"type": "resolve", "root_cause_service": "unknown", "postmortem_text": "Forced resolution due to step limit."}
+
             action_str = json.dumps(action, separators=(",", ":"))
+            action_type = action.get("type", "unknown")
+
+            # TASK 8: Debug logging per step
+            print(f"[DEBUG] Step {step}", flush=True)
+            print(f"[DEBUG] Action: {action_str}", flush=True)
+
+            # TASK 5: Client-side loop tracking for observability
+            if action_type == "query_logs":
+                ql_key = f"{action.get('service', '')}:{action.get('time_range', '')}"
+                query_logs_count[ql_key] = query_logs_count.get(ql_key, 0) + 1
+                if query_logs_count[ql_key] > 3:
+                    print(f"[DEBUG] WARNING: Repeated query_logs key={ql_key} count={query_logs_count[ql_key]}", flush=True)
+            elif action_type == "query_runbook":
+                runbook_count += 1
+                if runbook_count > 2:
+                    print(f"[DEBUG] WARNING: query_runbook overuse count={runbook_count}", flush=True)
+
+            if action_type in TERMINAL_ACTIONS:
+                terminal_action_taken = True
 
             try:
                 step_result = env_step(action)
@@ -205,11 +268,23 @@ def run_task(client: OpenAI, task_id: str, seed: int = 42) -> float:
                 reward = 0.0
                 done = False
                 error = str(e)[:80]
+                # TASK 4: Handle HTTP 4xx from server gracefully (invalid action payload)
+                if "422" in error or "400" in error:
+                    print(f"[DEBUG] Invalid action rejected by server: {error}", flush=True)
+                    obs_data["last_action_result"] = "INVALID_ACTION"
+
+            # TASK 8: Debug reward/done
+            print(f"[DEBUG] Reward: {reward:.2f}", flush=True)
+            print(f"[DEBUG] Done: {done}", flush=True)
+            if done and error:
+                print(f"[DEBUG] Termination Reason: error - {error}", flush=True)
+            elif done and step_result.get("info", {}).get("termination_reason"):
+                print(f"[DEBUG] Termination Reason: {step_result['info']['termination_reason']}", flush=True)
 
             rewards.append(reward)
             steps_taken = step
             log_step(step=step, action=action_str, reward=reward, done=done, error=error)
-            history.append(f"Step {step}: {action.get('type')} -> reward {reward:+.2f} | {obs_data.get('last_action_result','')[:60]}")
+            history.append(f"Step {step}: {action_type} -> reward {reward:+.2f} | {obs_data.get('last_action_result','')[:60]}")
 
             if done:
                 break
@@ -222,7 +297,11 @@ def run_task(client: OpenAI, task_id: str, seed: int = 42) -> float:
             score = sum(rewards)
             score = min(max(score, 0.0), 1.0)
 
-        success = score >= SUCCESS_THRESHOLD
+        # TASK 1: Success only when score meets the task-specific threshold
+        success_threshold = get_success_threshold(task_id)
+        success = score >= success_threshold
+
+        print(f"[DEBUG] Total Reward (Score): {score:.2f}", flush=True)
 
     except Exception as exc:
         print(f"[DEBUG] Episode error: {exc}", flush=True)
@@ -231,6 +310,7 @@ def run_task(client: OpenAI, task_id: str, seed: int = 42) -> float:
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
     return score, steps_taken, success
+
 
 def main() -> None:
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY, timeout=0.1, max_retries=0)
@@ -242,11 +322,14 @@ def main() -> None:
     for task_id in TASKS:
         score, steps, success = run_task(client, task_id)
         all_scores[task_id] = score
-        print(f"[DEBUG] {task_id} final score: {score:.3f}", flush=True)
+        print(f"[DEBUG] {task_id} final score: {score:.3f} steps: {steps} success: {success}", flush=True)
 
     print("\n[DEBUG] === FINAL SCORES ===", flush=True)
     for task_id, score in all_scores.items():
         print(f"[DEBUG] {task_id}: {score:.3f}", flush=True)
+
+    print("\nAgent behavior fixed. Environment ready for training.", flush=True)
+
 
 if __name__ == "__main__":
     main()
