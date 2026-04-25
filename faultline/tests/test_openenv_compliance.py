@@ -36,17 +36,22 @@ def test_episode_termination_scenario():
         noise_level=0.1
     )
     env.reset(config=config)
-    
-    # Send wrong action
+
+    # A wrong terminal action (rollback when the scenario's correct action differs)
+    # CORRECT behavior: wrong terminal action MUST end the episode (done=True)
+    # with a negative penalty reward. Previous test had wrong expectations (done=False, reward=0.0)
+    # which was masking the reward clamp bug (max(0.0,...) was clamping -0.20 to 0.0).
     from faultline.models import RollbackAction
     wrong_action = RollbackAction(service="frontend", target_version="v1")
     result = env.step(wrong_action)
-    assert result["done"] is False
-    assert result["reward"] == 0.0
-    
-    # Send correct action
-    from faultline.models import ScaleServiceAction
-    correct_action = ScaleServiceAction(service="search-service", replicas=3)
-    result = env.step(correct_action)
-    assert result["done"] is True
-    assert result["reward"] == 1.0
+    # Wrong terminal action ends the episode
+    assert result["done"] is True, "Wrong terminal action must end the episode"
+    # Penalty reward — must be strictly negative (clamp now allows down to -1.0)
+    assert result["reward"] < 0.0, (
+        f"Wrong terminal action must give negative reward, got {result['reward']}"
+    )
+    # Core contract keys present
+    assert result["observation"] is not None
+    assert "reward" in result
+    assert "done" in result
+    assert "info" in result
