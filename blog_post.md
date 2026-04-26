@@ -16,14 +16,14 @@ We trained a base model, Qwen2.5-1.5B-Instruct, using a two-stage approach:
 ## Training Evidence
 The model successfully learned to navigate the environment and maximize the reward function. SFT rapidly taught the model proper JSON action syntax and basic SRE reasoning patterns. GRPO fine-tuning subsequently increased the average reward score from 2.5/6.0 (baseline SFT) to 5.7/6.0.
 
-<p align="center"><img src="https://raw.githubusercontent.com/ryvarma7/FAULTLINEenv/main/assets/grpo_before_after.png" width="550" alt="GRPO Before and After"></p>
+<p align="center"><img src="https://github.com/ryvarma7/FAULTLINEenv/blob/main/assets/grpo_before_after.png?raw=true" width="550" alt="GRPO Before and After"></p>
 
 ## Results and Improvements
 The training pipeline yielded significant, measurable improvements. Between the base model and the final SFT+GRPO agent:
 - The average environment score increased from 0.05 to 0.85.
 - The rate of invalid actions per episode dropped from 6 down to 0.
 
-<p align="center"><img src="https://raw.githubusercontent.com/ryvarma7/FAULTLINEenv/main/assets/before_and_after_benchmark.png" width="550" alt="Before and After Benchmark"></p>
+<p align="center"><img src="https://github.com/ryvarma7/FAULTLINEenv/blob/main/assets/before_and_after_benchmark.png?raw=true" width="550" alt="Before and After Benchmark"></p>
 
 The environment infrastructure is fully hardened, having passed 22/22 stress tests covering deterministic grading, seed reproducibility, and loop penalty enforcement.
 

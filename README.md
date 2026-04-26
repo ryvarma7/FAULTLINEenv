@@ -49,7 +49,7 @@ FaultLine includes a procedural incident generator (`faultline/generator.py`) an
 |----------|-----|
 | Hugging Face Space | <a href="https://huggingface.co/spaces/ryvarma7/faultline" target="_blank" rel="noopener noreferrer">ryvarma7/faultline</a> |
 | Training Notebook | <a href="https://www.kaggle.com/code/ryvarma7/faultline-sft-grpo" target="_blank" rel="noopener noreferrer">Kaggle: faultline-sft-grpo</a> |
-| Blog / Video | Coming soon |
+| Blog Post | <a href="blog_post.md" target="_blank" rel="noopener noreferrer">Read the Blog Post</a> |
 | GitHub Repo | <a href="https://github.com/ryvarma7/FAULTLINEenv" target="_blank" rel="noopener noreferrer">ryvarma7/FAULTLINEenv</a> |
 
 ---
@@ -158,43 +158,43 @@ Penalties: repeated log queries (>3x same key), runbook overuse (>3 queries), wr
 
 The model learns JSON action syntax and SRE reasoning patterns rapidly in the first 50 steps, converging to loss < 0.35 by step 210.
 
-<p align="center"><img src="assets/sft_detailed_loss.png" width="700"></p>
+<p align="center"><img src="https://github.com/ryvarma7/FAULTLINEenv/blob/main/assets/sft_detailed_loss.png?raw=true" width="700"></p>
 
 ### GRPO Reward Progression
 
 Mean reward over 50 GRPO training steps. The upward trend shows the model learning to select higher-reward action sequences.
 
-<p align="center"><img src="assets/grpo_reward.png" width="700"></p>
+<p align="center"><img src="https://github.com/ryvarma7/FAULTLINEenv/blob/main/assets/grpo_reward.png?raw=true" width="700"></p>
 
 ### GRPO Loss
 
 Policy loss during GRPO fine-tuning. The spike at step ~34 corresponds to an exploration penalty that the model recovers from.
 
-<p align="center"><img src="assets/grpo_loss.png" width="700"></p>
+<p align="center"><img src="https://github.com/ryvarma7/FAULTLINEenv/blob/main/assets/grpo_loss.png?raw=true" width="700"></p>
 
 ### GRPO Learning Curve (Annotated)
 
 Raw reward per step with moving average trendline. Annotated with exploration penalty and mastery phases.
 
-<p align="center"><img src="assets/grpo_annotated_learning_curve.png" width="700"></p>
+<p align="center"><img src="https://github.com/ryvarma7/FAULTLINEenv/blob/main/assets/grpo_annotated_learning_curve.png?raw=true" width="700"></p>
 
 ### Before vs. After
 
 Environment score improvement from base model (0.05) to final SFT+GRPO agent (0.85). Invalid actions per episode dropped from 6 to 0.
 
-<p align="center"><img src="assets/before_and_after_benchmark.png" width="550"></p>
+<p align="center"><img src="https://github.com/ryvarma7/FAULTLINEenv/blob/main/assets/before_and_after_benchmark.png?raw=true" width="550"></p>
 
 ### Agent Evolution Across Pipeline Stages
 
 Score and invalid action count at each stage: Initial Model, Broken RL, Stabilized SFT, Final Agent (SFT + GRPO).
 
-<p align="center"><img src="assets/agent_evolution_dual_axis.png" width="700"></p>
+<p align="center"><img src="https://github.com/ryvarma7/FAULTLINEenv/blob/main/assets/agent_evolution_dual_axis.png?raw=true" width="700"></p>
 
 ### GRPO Before vs. After (Reward Score)
 
 Average reward score from 2.5/6.0 (baseline SFT) to 5.7/6.0 (after GRPO).
 
-<p align="center"><img src="assets/grpo_before_after.png" width="550"></p>
+<p align="center"><img src="https://github.com/ryvarma7/FAULTLINEenv/blob/main/assets/grpo_before_after.png?raw=true" width="550"></p>
 
 ---
 
