@@ -31,6 +31,18 @@ FaultLine provides that benchmark -- three hand-crafted incident scenarios with 
 
 ---
 
+## Hackathon Theme Alignment
+
+**Theme 3 -- World Modeling (3.1 Professional Tasks)**
+
+FaultLine is a partially observable world model of a production microservices system. The agent cannot see the full system state -- it must actively query logs, check metrics, and triage alerts to build a causal picture of what is happening. Each action updates the agent's belief about root cause and narrows the investigation. The environment requires multi-step tool orchestration (not single-shot Q&A), real causal reasoning across a 12-service dependency graph, and correct terminal action selection. This is the kind of professional SRE workflow that cannot be solved by pattern matching or shortcut exploitation.
+
+**Theme 4 -- Self-Improvement**
+
+FaultLine includes a procedural incident generator (`faultline/generator.py`) and a 4-stage curriculum scheduler (`faultline/curriculum.py`). The generator produces infinite unique incident scenarios from 6 failure modes, configurable cascade depth (0-3), red herring count (0-3), and noise levels. The curriculum scheduler auto-advances difficulty when the agent's rolling average reward crosses stage thresholds (0.5, 0.7, 0.85), creating an adaptive training loop where the environment scales with the agent's capability. This is recursive skill amplification -- the agent's performance directly drives the difficulty of its next training batch.
+
+---
+
 ## Links
 
 | Resource | URL |
@@ -146,43 +158,43 @@ Penalties: repeated log queries (>3x same key), runbook overuse (>3 queries), wr
 
 The model learns JSON action syntax and SRE reasoning patterns rapidly in the first 50 steps, converging to loss < 0.35 by step 210.
 
-![SFT Loss Curve](assets/sft_detailed_loss.png)
+<p align="center"><img src="assets/sft_detailed_loss.png" width="700"></p>
 
 ### GRPO Reward Progression
 
 Mean reward over 50 GRPO training steps. The upward trend shows the model learning to select higher-reward action sequences.
 
-![GRPO Mean Reward](assets/grpo_reward.png)
+<p align="center"><img src="assets/grpo_reward.png" width="700"></p>
 
 ### GRPO Loss
 
 Policy loss during GRPO fine-tuning. The spike at step ~34 corresponds to an exploration penalty that the model recovers from.
 
-![GRPO Loss](assets/grpo_loss.png)
+<p align="center"><img src="assets/grpo_loss.png" width="700"></p>
 
 ### GRPO Learning Curve (Annotated)
 
 Raw reward per step with moving average trendline. Annotated with exploration penalty and mastery phases.
 
-![GRPO Learning Curve](assets/grpo_annotated_learning_curve.png)
+<p align="center"><img src="assets/grpo_annotated_learning_curve.png" width="700"></p>
 
 ### Before vs. After
 
 Environment score improvement from base model (0.05) to final SFT+GRPO agent (0.85). Invalid actions per episode dropped from 6 to 0.
 
-![Before and After Benchmark](assets/before_and_after_benchmark.png)
+<p align="center"><img src="assets/before_and_after_benchmark.png" width="550"></p>
 
 ### Agent Evolution Across Pipeline Stages
 
 Score and invalid action count at each stage: Initial Model, Broken RL, Stabilized SFT, Final Agent (SFT + GRPO).
 
-![Agent Evolution](assets/agent_evolution_dual_axis.png)
+<p align="center"><img src="assets/agent_evolution_dual_axis.png" width="700"></p>
 
 ### GRPO Before vs. After (Reward Score)
 
 Average reward score from 2.5/6.0 (baseline SFT) to 5.7/6.0 (after GRPO).
 
-![GRPO Before After](assets/grpo_before_after.png)
+<p align="center"><img src="assets/grpo_before_after.png" width="550"></p>
 
 ---
 
