@@ -19,7 +19,7 @@ An OpenEnv environment for training and evaluating AI agents on production incid
 
 Agents navigate a simulated 12-service microservices system under active incidents -- triaging alerts, querying logs, checking metrics, and executing the correct remediation. The environment is fully synthetic, deterministic, and seed-reproducible.
 
-**Domain:** Site Reliability Engineering (SRE)
+**Domain:** Site Reliability Engineering (SRE).
 
 ---
 
