@@ -47,10 +47,10 @@ FaultLine includes a procedural incident generator (`faultline/generator.py`) an
 
 | Resource | URL |
 |----------|-----|
-| Hugging Face Space | `[TODO: Add HF Space URL]` |
-| Training Notebook | `[TODO: Add Kaggle/Colab notebook URL]` |
-| Blog / Video | `[TODO: Add blog post or video URL]` |
-| GitHub Repo | `[TODO: Add GitHub URL]` |
+| Hugging Face Space | [ryvarma7/faultline](https://huggingface.co/spaces/ryvarma7/faultline) |
+| Training Notebook | [Kaggle: faultline-sft-grpo](https://www.kaggle.com/code/ryvarma7/faultline-sft-grpo) |
+| Blog / Video | Coming soon |
+| GitHub Repo | [ryvarma7/FAULTLINEenv](https://github.com/ryvarma7/FAULTLINEenv) |
 
 ---
 
