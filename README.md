@@ -1,6 +1,6 @@
 ---
 title: FaultLine
-emoji: 🔥
+emoji: "\U0001F525"
 colorFrom: red
 colorTo: gray
 sdk: docker
@@ -12,181 +12,343 @@ tags:
   - agent
 license: mit
 ---
+
 # FaultLine
-> SRE Incident Response Agent Environment — OpenEnv Hackathon Submission.
 
-**"Where agents learn to hold the line."**
+An OpenEnv environment for training and evaluating AI agents on production incident response.
 
-## Overview
-FaultLine is a fully synthetic, deterministic OpenEnv environment that simulates a production microservices system experiencing a live incident. AI agents navigate multi-step investigations — querying logs, checking metrics, acknowledging alerts — to identify root causes and perform the correct remediations.
+Agents navigate a simulated 12-service microservices system under active incidents -- triaging alerts, querying logs, checking metrics, and executing the correct remediation. The environment is fully synthetic, deterministic, and seed-reproducible.
 
-**Domain:** Site Reliability Engineering (SRE) — real-time production incident response  
-**Why it matters:** Production incidents cost an average of $5,600/minute. No standardized AI benchmark exists for SRE incident response. FaultLine fills that gap by providing a mathematically robust grading system to objectively evaluate LLM triage, root-cause analysis, and mitigation capabilities..
+**Domain:** Site Reliability Engineering (SRE)
 
-## Quick Start
+---
 
-### Docker (recommended)
-```bash
-docker build -t faultline .
-docker run -p 7860:7860 faultline
+## Problem
+
+Production incidents cost thousands per minute. Current LLMs fail at structured SRE triage: they hallucinate actions, investigate wrong services, and miss causal chains between dependencies. No standardized benchmark exists to measure or train this capability.
+
+FaultLine provides that benchmark -- three hand-crafted incident scenarios with deterministic grading, a procedural generator for infinite curriculum training, and a reward function designed to resist gaming.
+
+---
+
+## Links
+
+| Resource | URL |
+|----------|-----|
+| Hugging Face Space | `[TODO: Add HF Space URL]` |
+| Training Notebook | `[TODO: Add Kaggle/Colab notebook URL]` |
+| Blog / Video | `[TODO: Add blog post or video URL]` |
+| GitHub Repo | `[TODO: Add GitHub URL]` |
+
+---
+
+## How the Environment Works
+
+```
+Agent                         FaultLine Server (port 7860)
+  |                                  |
+  |--- POST /reset {task, seed} ---->|   Initialize incident scenario
+  |<--- observation (alerts, graph) -|
+  |                                  |
+  |--- POST /step {action} -------->|   Execute action, return reward
+  |<--- {obs, reward, done, info} --|
+  |          ... loop ...            |
+  |--- POST /grade ---------------->|   Final deterministic score
+  |<--- {score, breakdown, passed} -|
 ```
 
-### Local
+Each observation includes:
+- Firing alerts with severity (P1-P4), service, and description
+- Log entries from `query_logs` actions
+- Time-series metrics from `check_metrics` actions
+- Full 12-service dependency graph
+- Acknowledged alert list
+- Step count and last action result
+
+### Action Space
+
+| Action | Parameters | Terminal |
+|--------|-----------|---------|
+| `acknowledge_alert` | `alert_id` | No |
+| `query_logs` | `service`, `time_range`, `filter_expr` | No |
+| `check_metrics` | `service`, `metric_name`, `window_minutes` | No |
+| `query_runbook` | `topic` | No |
+| `rollback` | `service`, `target_version` | Yes |
+| `scale_service` | `service`, `replicas` | Yes |
+| `resolve` | `root_cause_service`, `postmortem_text` | Yes |
+| `escalate` | `team`, `message` | No |
+
+Available metrics: `cpu`, `memory`, `latency_p99`, `error_rate`, `throughput`
+
+Max steps per episode: 20
+
+---
+
+## Tasks
+
+### Task 1 -- Single Service Latency (Easy)
+
+`search-service` alerts on high latency. Root cause: `elasticsearch` heap exhaustion causing GC storms. One alert, no red herrings.
+
+Challenge: Blame the dependency, not the alerting service.
+
+Correct action: `resolve(root_cause_service='elasticsearch', postmortem_text=...)`
+
+### Task 2 -- Cascading Failure (Medium)
+
+A bad `payment-service` deployment leaks database connections. Three alerts fire across `payment-service`, `order-service`, and `payment-db`. Agent must trace upstream.
+
+Challenge: Distinguish the root cause deployment from the downstream victims.
+
+Correct action: `rollback(service='payment-service', target_version='v1.4.1')`
+
+### Task 3 -- Multi-Region Incident with Red Herrings (Hard)
+
+`model-serving` hits CPU quota after a model upgrade, causing `fraud-detector` timeouts and `payment-service` fallback. Two unrelated elasticsearch alerts fire as noise.
+
+Challenge: Ignore P3 distractors, trace the causal chain, pick `scale_service` over `rollback`.
+
+Correct action: `scale_service(service='model-serving', replicas=4)`
+
+---
+
+## Reward Structure
+
+| Criterion | Easy | Medium | Hard |
+|-----------|------|--------|------|
+| Correct Terminal Action / Root Cause | 0.45 | 0.40 | 0.50 |
+| Alert Triage | 0.10 | 0.10 | 0.10 |
+| Logs/Metrics Investigation | 0.10 | 0.10 | 0.10 |
+| Postmortem Quality | 0.15 | 0.15 | 0.15 |
+| Speed Bonus | 0.10 | 0.10 | 0.05 |
+| No Wrong Actions / Red Herrings | 0.10 | 0.15 | 0.10 |
+| **Total** | **1.00** | **1.00** | **1.00** |
+
+Penalties: repeated log queries (>3x same key), runbook overuse (>3 queries), wrong terminal actions, red herring investigation. Postmortems are graded on structural quality and keyword density to prevent reward hacking.
+
+---
+
+## What Was Trained
+
+**Base model:** Qwen2.5-1.5B-Instruct
+
+**Pipeline:**
+1. **SFT** -- Supervised fine-tuning on 50 expert trajectories (`quality_data.json`). Each trajectory is a complete incident resolution with correct observation-action pairs and detailed postmortems. 210 training steps.
+2. **GRPO** -- Group Relative Policy Optimization using the FaultLine environment reward signal. 50 training steps. The model learns to maximize the environment's grading function directly.
+
+**Training dataset:** 50 curated trajectories covering 15+ distinct failure modes (OOM, connection leak, quota exhaustion, config drift, crash loops, replication lag, deadlocks, TLS expiry, etc.)
+
+---
+
+## Training Evidence
+
+### SFT Loss Curve
+
+The model learns JSON action syntax and SRE reasoning patterns rapidly in the first 50 steps, converging to loss < 0.35 by step 210.
+
+![SFT Loss Curve](assets/sft_detailed_loss.png)
+
+### GRPO Reward Progression
+
+Mean reward over 50 GRPO training steps. The upward trend shows the model learning to select higher-reward action sequences.
+
+![GRPO Mean Reward](assets/grpo_reward.png)
+
+### GRPO Loss
+
+Policy loss during GRPO fine-tuning. The spike at step ~34 corresponds to an exploration penalty that the model recovers from.
+
+![GRPO Loss](assets/grpo_loss.png)
+
+### GRPO Learning Curve (Annotated)
+
+Raw reward per step with moving average trendline. Annotated with exploration penalty and mastery phases.
+
+![GRPO Learning Curve](assets/grpo_annotated_learning_curve.png)
+
+### Before vs. After
+
+Environment score improvement from base model (0.05) to final SFT+GRPO agent (0.85). Invalid actions per episode dropped from 6 to 0.
+
+![Before and After Benchmark](assets/before_and_after_benchmark.png)
+
+### Agent Evolution Across Pipeline Stages
+
+Score and invalid action count at each stage: Initial Model, Broken RL, Stabilized SFT, Final Agent (SFT + GRPO).
+
+![Agent Evolution](assets/agent_evolution_dual_axis.png)
+
+### GRPO Before vs. After (Reward Score)
+
+Average reward score from 2.5/6.0 (baseline SFT) to 5.7/6.0 (after GRPO).
+
+![GRPO Before After](assets/grpo_before_after.png)
+
+---
+
+## Results
+
+### Stress Test Suite (22/22 passed)
+
+From `stress_test_results.json`:
+
+| Test Category | Result |
+|--------------|--------|
+| Task initialization (all 3 tasks) | Passed |
+| Seed reproducibility (all 3 tasks) | Passed |
+| Action execution (ack, logs, metrics) | Passed |
+| Episode completion (easy) | 4 steps, done=True |
+| Grading: Easy | 0.850, passed |
+| Grading: Medium | 0.850, passed |
+| Grading: Hard | 0.850, passed |
+| Invalid task/state handling | Passed |
+| Loop penalty enforcement | Passed |
+| Dependency graph validation (12 services) | Passed |
+| Stress load (9 episodes, 0 failures) | Passed |
+| Observation contract validity | Passed |
+
+### Deterministic Baseline Scores
+
+Expert agent following validated solution paths:
+
+| Task | Score | Correct Action | Speed Bonus | Clean Execution |
+|------|-------|---------------|-------------|-----------------|
+| Easy | 0.850 | 0.45 / 0.45 | +0.10 | +0.10 |
+| Medium | 0.850 | 0.40 / 0.40 | +0.10 | +0.15 |
+| Hard | 0.850 | 0.50 (root cause) + 0.15 (action type) | +0.05 | +0.10 |
+
+### Agent Performance (Post-Training)
+
+| Metric | Before (Base Model) | After (SFT + GRPO) |
+|--------|--------------------|--------------------|
+| Avg environment score | 0.05 | 0.85 |
+| Invalid actions per episode | 6 | 0 |
+| Avg reward (sum across tasks) | 2.5 / 6.0 | 5.7 / 6.0 |
+
+---
+
+## Reproducibility
+
+### Run the environment
+
 ```bash
+# Docker
+docker build -t faultline .
+docker run -p 7860:7860 faultline
+
+# Local
 pip install -r requirements.txt
 uvicorn server.app:app --host 0.0.0.0 --port 7860
 ```
 
-### Run baseline inference
+### Run inference
+
 ```bash
-export HF_TOKEN=your_token
-export MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
-export API_BASE_URL=https://router.huggingface.co/v1
+cp .env.example .env
+# Edit .env with your HF_TOKEN
 python inference.py
 ```
 
-## Action Space
+### Run the test suite
 
-| Action | Parameters | Effect |
-|--------|-----------|--------|
-| `acknowledge_alert` | `alert_id` | Mark alert as owned |
-| `query_logs` | `service`, `time_range`, `filter_expr` | Retrieve log entries |
-| `check_metrics` | `service`, `metric_name`, `window_minutes` | Get time-series data |
-| `rollback` | `service`, `target_version` | Revert a deployment (terminal) |
-| `scale_service` | `service`, `replicas` | Increase pod count (terminal) |
-| `escalate` | `team`, `message` | Page human team (terminal) |
-| `resolve` | `root_cause_service`, `postmortem_text` | Submit root cause analysis (terminal) |
+```bash
+python -m pytest faultline/tests/ -v
+python -m pytest tests/ -v
+```
 
-**Available metrics:** `cpu`, `memory`, `latency_p99`, `error_rate`, `throughput`
+### Run debug sanity check (no server needed)
 
-## Observation Space
+```bash
+python debug_run.py --all
+```
 
-Each step returns a `FaultLineObservation` with:
-- `alerts`: List of firing alerts with severity (P1–P4), service, title, description
-- `log_results`: Log entries from the last `query_logs` action
-- `metric_results`: Time-series data from the last `check_metrics` action
-- `dependency_graph`: Full service dependency map (12 services)
-- `acknowledged_alerts`: Alert IDs the agent has acknowledged
-- `elapsed_steps`: Number of actions taken
-- `last_action_result`: Human-readable result of the previous action
+### Environment variables
 
-## Tasks
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HF_TOKEN` | -- | HuggingFace API token |
+| `API_BASE_URL` | `https://router.huggingface.co/v1` | LLM API endpoint |
+| `MODEL_NAME` | `meta-llama/Llama-3.1-405B-Instruct` | Model identifier |
+| `FAULTLINE_URL` | `http://127.0.0.1:7860` | Environment server URL |
+| `MAX_STEPS` | `15` | Max inference steps |
+| `TEMPERATURE` | `0.2` | LLM temperature |
 
-### Task 1 — Single-Service Latency Spike (Easy)
-**Scenario:** `search-service` is alerting HIGH_LATENCY. Root cause is `elasticsearch` running out of heap memory and garbage-collecting aggressively. One alert fires; no red herrings.  
-**Key challenge:** Blame the dependency, not the alerting service.  
-**Correct terminal action:** `resolve(root_cause_service='elasticsearch', postmortem_text=...)`
+### Seed control
 
-### Task 2 — Cascading Failure (Medium)
-**Scenario:** A bad `payment-service` deployment introduced a DB connection pool bug. Three alerts fire simultaneously across payment-service, order-service, and payment-db. Agent must trace upstream.  
-**Key challenge:** Distinguish the root cause (payment-service deployment) from victims (payment-db, order-service).  
-**Correct terminal action:** `rollback(service='payment-service', target_version='v1.4.1')`
+All tasks are deterministic with seed control. Default seed: `42`. Same seed produces identical episodes, observations, and grading.
 
-### Task 3 — Multi-Region Incident with Red Herrings (Hard)
-**Scenario:** `model-serving` hits a CPU quota limit post-model-upgrade, causing fraud-detector timeouts and payment-service fallback to allow-all mode. Two unrelated elasticsearch alerts fire simultaneously as red herrings.  
-**Key challenge:** Ignore P3 noise, trace the causal chain, choose `scale_service` not `rollback`.  
-**Correct terminal action:** `scale_service(service='model-serving', replicas=4)`
+---
 
-## Detailed Reward Breakdown
+## Project Structure
 
-The following table details the maximum achievable reward components for each task grading criterion. 
+```
+FAULTLINEenv/
+  faultline/
+    env.py              Core OpenEnv environment (reset, step, grade)
+    models.py            Pydantic v2 models (observations, actions, rewards)
+    server.py            Internal server module
+    generator.py         Procedural incident generator (infinite scenarios)
+    curriculum.py        Curriculum scheduler (4-stage difficulty progression)
+    runbooks.py          SRE runbook knowledge base (10 topics)
+    tasks/
+      base.py            Abstract task class
+      task_easy.py       Single-service latency scenario
+      task_medium.py     Cascading failure scenario
+      task_hard.py       Multi-region incident scenario
+    graders/
+      base.py            Grader interface + postmortem scorer
+      grader_easy.py     Easy task grading logic
+      grader_medium.py   Medium task grading logic
+      grader_hard.py     Hard task grading logic
+    data/
+      incidents/         Incident seed data (easy.json, medium.json, hard.json)
+      log_templates.json Synthetic log templates
+      metric_profiles.json Metric generation profiles
+    utils/
+      action_parser.py   Centralized Pydantic v2 discriminated union parser
+      validators.py      Step output contract validator
+  server/
+    app.py               FastAPI application (HTTP API layer)
+  tests/
+    test_contracts.py    Contract and integration tests
+  assets/
+    sft_detailed_loss.png
+    grpo_reward.png
+    grpo_loss.png
+    grpo_annotated_learning_curve.png
+    grpo_before_after.png
+    before_and_after_benchmark.png
+    agent_evolution_dual_axis.png
+    baseline_eval.json
+  inference.py           ReAct-style LLM agent (mandatory submission format)
+  evaluate.py            Multi-seed evaluation harness
+  debug_run.py           Local sanity check (no server needed)
+  debug_sanity.py        Additional debug utilities
+  quality_data.json      50 expert SRE trajectories (SFT training data)
+  stress_test_results.json  22/22 environment stress tests
+  openenv.yaml           OpenEnv metadata
+  Dockerfile
+  requirements.txt
+  pyproject.toml
+```
 
-| Grading Criterion | Easy (Task 1) | Medium (Task 2) | Hard (Task 3) |
-|-------|--------|--------|--------|
-| **Correct Terminal Action / Root Cause** | 0.45 | 0.40 | 0.50 |
-| **Alert Triage / Acknowledgment** | 0.10 | 0.10 | 0.10 |
-| **Logs/Metrics Investigation** | 0.10 | 0.10 | 0.10 |
-| **Postmortem Quality** | 0.15 | 0.15 | 0.15 |
-| **Speed Bonus** | 0.10 | 0.10 | 0.05 |
-| **No Wrong Actions/Red Herrings** | 0.10 | 0.15 | 0.10 |
-| **Total Possible Score** | **1.00** | **1.00** | **1.00** |
+---
 
-*Note: Penalties exist for infinite loops (e.g., redundant log queries >3x) or exploring incorrect/red-herring services. Postmortems are evaluated using a robust structural grader that verifies length, prose structure, and keyword density to prevent gamification.*
-
-## Reproducible Baseline Scores
-
-These are the reproducible baseline scores achieved by our reference expert agent following the valid solution paths validated by the testing suite. This demonstrates the determinism and attainability of high scores:
-
-| Task | Outcome | Final Score | Correct Action Triage | Speed Bonus Earned | Clean Execution | Notes |
-|------|---------|-------------|-----------------------|--------------------|-----------------|-------|
-| **Task 1 — single_service_latency (Easy)** | Passed (Perfect) | **0.975** | `0.450 / 0.450` | Yes (+0.10) | Yes (+0.10) | Partial postmortem keywords (-0.025) |
-| **Task 2 — cascading_failure (Medium)** | Passed (Correct) | **0.850** | `0.400 / 0.400` | Yes (+0.10) | Yes (+0.15) | Basic postmortem text (-0.150) |
-| **Task 3 — multi_region_incident (Hard)** | Passed (Correct) | **0.850** | `0.500 / 0.500` | Yes (+0.05) | Yes (+0.10) | Basic postmortem text (-0.150) |
-
-Overall Average Baseline Score: **~0.892**
-
-## API Endpoints
+## API Reference
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Health check |
-| POST | `/reset` | Start new episode `{"task_id": "...", "seed": 42}` |
-| POST | `/step` | Execute action `{"action": {...}}` |
+| POST | `/reset` | Start episode: `{"task_id": "...", "seed": 42}` |
+| POST | `/step` | Execute action: `{"action": {...}}` |
 | POST | `/state` | Get current observation |
 | POST | `/grade` | Grade completed episode |
-| GET | `/tasks` | List all tasks |
+| GET | `/tasks` | List available tasks |
 
-## Project Structure
-```
-faultline/
-├── faultline/
-│   ├── env.py          # FaultLineEnv — core OpenEnv interface
-│   ├── models.py       # Pydantic models: Observation, Action, Reward
-│   ├── server.py       # FastAPI HTTP server
-│   ├── tasks/          # Task implementations (easy/medium/hard)
-│   ├── graders/        # Deterministic graders (easy/medium/hard)
-│   └── data/           # Synthetic log templates, metric profiles, incident seeds
-├── tests/              # pytest test suite
-├── inference.py        # Baseline agent (mandatory)
-├── openenv.yaml        # OpenEnv metadata
-├── Dockerfile
-└── requirements.txt
-```
+---
 
-## Environment Variables
+## Inference Output Format
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `HF_TOKEN` | Yes | — | HuggingFace / API key |
-| `API_BASE_URL` | No | HF router | LLM API endpoint |
-| `MODEL_NAME` | No | Qwen2.5-72B | Model identifier |
-| `FAULTLINE_URL` | No | localhost:7860 | Environment server URL |
-
-## Testing
-
-Run the full test suite:
-```bash
-python -m pytest faultline/tests/ -v
-```
-
-Expected output: **26 tests passed**
-
-## Architecture
-
-### Environment (`FaultLineEnv`)
-- Manages task lifecycle: reset() → observe → step() → done
-- Maintains episode state: current task, acknowledged alerts, query history
-- Deterministic with seed control
-
-### Tasks
-- **BaseTask**: Abstract class with shared mechanics (alerts, logs, metrics generation)
-- **TaskEasy**: Single-service latency (elasticsearch OOM)
-- **TaskMedium**: Cascading failure (payment-service deployment bug)
-- **TaskHard**: Multi-region incident with red herrings (model-serving CPU quota)
-
-### Graders
-- **GraderEasy**: Scores based on correct root cause, alert acks, speed
-- **GraderMedium**: Scores based on correct rollback, alert triage, log investigation
-- **GraderHard**: Scores based on correct scale action, red herring avoidance, postmortem quality
-
-### Server
-- FastAPI app serving all environment operations over HTTP
-- Stateful session management (one environment per session_id)
-- Runs on port 7860 (HF Space default)
-
-## Submission Notes
-
-**Mandatory Output Format** (`inference.py`):
 ```
 [START] task=single_service_latency env=faultline model=Qwen/Qwen2.5-72B-Instruct
 [STEP] step=1 action={...} reward=0.10 done=false error=null
@@ -194,10 +356,12 @@ Expected output: **26 tests passed**
 [END] success=true steps=2 score=0.800 rewards=0.10,0.50
 ```
 
-This format is required for hackathon evaluation. All output goes to stdout with mandatory [START], [STEP], [END] tags.
+Required for hackathon evaluation. All output to stdout with `[START]`, `[STEP]`, `[END]` tags.
+
+---
 
 ## License
+
 MIT
 
-## Contact
-Built for OpenEnv Hackathon 2025 — SRE Incident Response Challenge
+Built for OpenEnv Hackathon 2026.
